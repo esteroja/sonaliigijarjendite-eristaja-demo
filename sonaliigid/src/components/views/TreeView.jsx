@@ -16,18 +16,26 @@ export default function TreeView({
     const [onlyMarked, setOnlyMarked] = useState(false);
     const [openMarkedPaths, setOpenMarkedPaths] = useState(true);
 
-    const rows = useMemo(() => {
-        const byN = rowsByN || {};
-        const treeNs = selectedNs.filter((n) => n > 1);
-        const merged = treeNs.flatMap((n) => byN[n] || []);
+    const treeNs = useMemo(() => selectedNs.filter((n) => n > 1), [selectedNs]);
 
-        return merged.filter((r) => {
-            return !(onlyMarked && !r.sigAny);
-        });
-    }, [rowsByN, selectedNs, onlyMarked]);
+    const selectedRows = useMemo(() => {
+        const byN = rowsByN || {};
+        return treeNs.flatMap((n) => byN[n] || []);
+    }, [rowsByN, treeNs]);
+
+    const rows = useMemo(() => {
+        return selectedRows.filter((r) => !(onlyMarked && !r.sigAny));
+    }, [selectedRows, onlyMarked]);
 
     const markedCount = useMemo(() => rows.filter((r) => !!r.sigAny).length, [rows]);
-    const disableOpenMarked = markedCount === 0;
+    const hasSelection = treeNs.length > 0;
+    const hasMarkedInSelection = selectedRows.some((r) => !!r.sigAny);
+    const isFilteredEmpty = onlyMarked && rows.length === 0;
+    const showNotFoundMessage = !hasSelection || isFilteredEmpty;
+    const showNoAtypicalMessage = hasSelection && !onlyMarked && rows.length > 0 && !hasMarkedInSelection;
+    const showOpenMarkedButton = !showNotFoundMessage && hasMarkedInSelection;
+    const showHelpNote = hasSelection && rows.length > 0;
+    const showTree = hasSelection && rows.length > 0;
 
     return (
         <div className="view-wrapper">
@@ -59,32 +67,40 @@ export default function TreeView({
 
             <div className="tree-legend">
                 <div className="legend-col">
-                    {!disableOpenMarked && (
+                    {showOpenMarkedButton && (
                         <button
                             type="button"
                             className={`rare-toggle-btn ${openMarkedPaths ? "rare-toggle-btn--active" : ""}`}
                             onClick={() => setOpenMarkedPaths((v) => !v)}
                         >
                             {openMarkedPaths ? "Sulge kõik harud" : "Ava ebatüüpiliste järjestustega harud"}
-                            {!disableOpenMarked ? ` (${markedCount})` : ""}
+                            {` (${markedCount})`}
                         </button>
                     )}
 
-                    {disableOpenMarked && (
+                    {showNotFoundMessage && (
                         <div className="tree-muted">
                             Valitud järjestusi ei leitud.
+                        </div>
+                    )}
+
+                    {showNoAtypicalMessage && (
+                        <div className="tree-muted">
+                            Ebatüüpilisi järjestusi ei leitud.
                         </div>
                     )}
                 </div>
             </div>
 
-            {!disableOpenMarked && (
+            {showHelpNote && (
                 <div className="tree-help-note">
                     Iga sõnaliigi kõrval olev infonupp avab sõnaliigile eelneva haru täpse võrdluse.
                 </div>
             )}
 
-            <PosTree rows={rows} openRarePaths={openMarkedPaths} getExamplesForKey={getExamplesForKey} />
+            {showTree && (
+                <PosTree rows={rows} openRarePaths={openMarkedPaths} getExamplesForKey={getExamplesForKey} />
+            )}
         </div>
     );
 }
